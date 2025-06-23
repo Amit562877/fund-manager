@@ -236,7 +236,7 @@ const KhataBook: React.FC<KhataBookProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Khata Book</h2>
-          <p className="text-slate-600 mt-1">Track your lending and borrowing transactions</p>
+          <p className="text-slate-600 mt-1">Track your lending and borrowing transactions!</p>
         </div>
         <button
           onClick={() => setShowEntryForm(true)}
