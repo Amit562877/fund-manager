@@ -1,84 +1,90 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import ChecklistItem from './ChecklistItem';
-import { Checklist, ChecklistItem as ChecklistItemType } from '../types/checklist';
-import { checkForOverdueItems } from '../utils/reminders';
+import { useChecklistStore } from '../store/checklistStore';
 
-export interface ChecklistItemProps {
-  item: ChecklistItemType;
-  onMarkAsDone: () => void;
-}
 const ChecklistManager: React.FC = () => {
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [newChecklist, setNewChecklist] = useState<string>('');
-  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+  const {
+    checklists,
+    addChecklist,
+    setChecklistItemDone,
+    addChecklistItem,
+  } = useChecklistStore();
 
-  const addChecklist = () => {
-    if (newChecklist.trim()) {
-      const checklist: Checklist = {
-        id: Date.now().toString(),
-        title: newChecklist,
-        frequency,
-        items: [],
-      };
-      setChecklists([...checklists, checklist]);
-      setNewChecklist('');
-    }
-  };
-
-  const markItemAsDone = (checklistId: string, itemId: string) => {
-    setChecklists(checklists.map(checklist => {
-      if (checklist.id === checklistId) {
-        return {
-          ...checklist,
-          items: checklist.items.map(item => 
-            item.id === itemId ? { ...item, done: true } : item
-          ),
-        };
-      }
-      return checklist;
-    }));
-  };
-
-  useEffect(() => {
-    const allItems = checklists.flatMap(cl => cl.items);
-    const overdueItems = checkForOverdueItems(allItems);
-    if (overdueItems.length > 0) {
-      alert(`You have overdue items: ${overdueItems.map(item => item.title).join(', ')}`);
-    }
-  }, [checklists]);
+  const [newChecklist, setNewChecklist] = React.useState('');
+  const [frequency, setFrequency] = React.useState<'daily' | 'weekly' | 'monthly' | 'yearly'>('daily');
+  const [newItem, setNewItem] = React.useState<{ [key: string]: string }>({});
 
   return (
-    <div className="checklist-manager">
-      <h2 className="text-2xl font-bold">Checklist Manager</h2>
-      <div className="add-checklist">
+    <div className="max-w-2xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-4">Checklist Manager</h2>
+      <div className="flex gap-2 mb-6">
         <input
           type="text"
           value={newChecklist}
           onChange={(e) => setNewChecklist(e.target.value)}
           placeholder="New Checklist Title"
-          className="border p-2"
+          className="border p-2 rounded flex-1"
         />
-        <select value={frequency} onChange={(e) => setFrequency(e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')} className="border p-2">
+        <select
+          value={frequency}
+          onChange={(e) => setFrequency(e.target.value as any)}
+          className="border p-2 rounded"
+        >
           <option value="daily">Daily</option>
           <option value="weekly">Weekly</option>
           <option value="monthly">Monthly</option>
           <option value="yearly">Yearly</option>
         </select>
-        <button onClick={addChecklist} className="bg-blue-600 text-white p-2">Add Checklist</button>
+        <button
+          onClick={() => {
+            if (newChecklist.trim()) {
+              addChecklist(newChecklist, frequency);
+              setNewChecklist('');
+            }
+          }}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Add
+        </button>
       </div>
-      <div className="checklist-list">
+      <div className="space-y-6">
         {checklists.map(checklist => (
-          <div key={checklist.id} className="checklist">
-            <h3 className="font-semibold">{checklist.title} ({checklist.frequency})</h3>
-            <div className="checklist-items">
-              {checklist.items.map(item => (
-                <ChecklistItem 
-                  key={item.id} 
-                  item={item} 
-                  onMarkAsDone={() => markItemAsDone(checklist.id, item.id)} 
-                />
-              ))}
+          <div key={checklist.id} className="bg-white rounded-lg shadow p-4">
+            <h3 className="font-semibold mb-2">{checklist.title} <span className="text-xs text-gray-500">({checklist.frequency})</span></h3>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={newItem[checklist.id] || ''}
+                onChange={e => setNewItem({ ...newItem, [checklist.id]: e.target.value })}
+                placeholder="Add item"
+                className="border p-2 rounded flex-1"
+              />
+              <button
+                className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
+                onClick={() => {
+                  if ((newItem[checklist.id] || '').trim()) {
+                    addChecklistItem(checklist.id, newItem[checklist.id]);
+                    setNewItem({ ...newItem, [checklist.id]: '' });
+                  }
+                }}
+              >
+                Add
+              </button>
             </div>
+            <ul>
+              {checklist.items.map(item => (
+                <li key={item.id} className="flex items-center justify-between py-1">
+                  <span className={item.done ? "line-through text-gray-400" : ""}>{item.title}</span>
+                  <button
+                    className={`ml-2 px-2 py-1 rounded text-xs ${item.done ? "bg-gray-300" : "bg-blue-500 text-white hover:bg-blue-600"}`}
+                    disabled={item.done}
+                    onClick={() => setChecklistItemDone(checklist.id, item.id)}
+                  >
+                    {item.done ? "Done" : "Mark Done"}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         ))}
       </div>

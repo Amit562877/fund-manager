@@ -9,10 +9,9 @@ import {
   CreditCard,
   Calculator,
   BookOpen,
-  LogIn,
-  UserPlus,
   Menu,
   X,
+  User,
 } from 'lucide-react';
 
 export default function Header() {
@@ -24,6 +23,7 @@ export default function Header() {
     { to: '/emi', label: 'EMI Manager', icon: <CreditCard size={16} /> },
     { to: '/interest', label: 'Interest Tracker', icon: <Calculator size={16} /> },
     { to: '/khatabook', label: 'Khata Book', icon: <BookOpen size={16} /> },
+    { to: '/checklist', label: 'Checklist', icon: <Menu size={16} /> },
   ];
 
   return (
@@ -54,19 +54,13 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* Auth Buttons (desktop) */}
+        {/* Profile Button (desktop) */}
         <div className="hidden md:flex gap-4 items-center">
           <NavLink
-            to="/login"
+            to="/profile"
             className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"
           >
-            <LogIn size={16} /> Login
-          </NavLink>
-          <NavLink
-            to="/signup"
-            className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
-          >
-            <UserPlus size={16} /> Sign Up
+            <User size={16} /> Profile
           </NavLink>
         </div>
 
@@ -103,18 +97,11 @@ export default function Header() {
 
           <div className="mt-4 flex flex-col gap-2">
             <NavLink
-              to="/login"
+              to="/profile"
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline"
             >
-              <LogIn size={16} /> Login
-            </NavLink>
-            <NavLink
-              to="/signup"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg"
-            >
-              <UserPlus size={16} /> Sign Up
+              <User size={16} /> Profile
             </NavLink>
           </div>
         </div>

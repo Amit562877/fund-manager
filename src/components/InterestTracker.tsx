@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Calculator, TrendingUp, TrendingDown, PieChart, BarChart3 } from 'lucide-react';
 import { EMI } from '../types';
+import './InterestTracker.css';
 
 interface InterestTrackerProps {
   emis: EMI[];
@@ -8,13 +9,13 @@ interface InterestTrackerProps {
 
 const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
   const [selectedEMI, setSelectedEMI] = useState<string>('');
+  const statsRef = useRef<HTMLDivElement>(null);
 
   // Calculate totals
   const totalLoanAmount = emis.reduce((sum, emi) => sum + emi.loanAmount, 0);
   const totalInterestPaid = emis.reduce((sum, emi) => sum + emi.paidInterest, 0);
   const totalRemainingInterest = emis.reduce((sum, emi) => sum + emi.remainingInterest, 0);
   const totalInterest = totalInterestPaid + totalRemainingInterest;
-  const totalAmount = totalLoanAmount + totalInterest;
 
   const selectedEMIData = emis.find(emi => emi.id === selectedEMI);
 
@@ -36,7 +37,6 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
 
   // Helper: Calculate actual interest (with prepayments)
   const calculateActualInterest = (emi: EMI) => {
-    // If transactions exist, recalculate with prepayments
     if ((emi as any).transactions && Array.isArray((emi as any).transactions)) {
       const txns = ((emi as any).transactions as any[]).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
       let principal = emi.loanAmount;
@@ -44,7 +44,6 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
       const monthlyRate = emi.interestRate / (12 * 100);
       let txnIndex = 0;
       for (let i = 0; i < emi.tenure && principal > 0; i++) {
-        // Apply all prepayments before this EMI
         while (
           txnIndex < txns.length &&
           txns[txnIndex].type === 'prepayment'
@@ -56,7 +55,6 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
         totalInterest += interestPortion;
         const principalPortion = emi.emiAmount - interestPortion;
         principal -= principalPortion;
-        // Move to next transaction if it's an EMI payment (skip, as we simulate all EMIs)
         while (
           txnIndex < txns.length &&
           txns[txnIndex].type === 'emi'
@@ -66,7 +64,6 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
       }
       return Math.round(totalInterest);
     }
-    // Fallback: use stored totalInterest
     return Math.round(emi.totalInterest);
   };
 
@@ -86,7 +83,6 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
   const totalSavedByPrepayment = emiSavings.reduce((sum, e) => sum + e.saved, 0);
 
   const getInterestSavings = (emi: EMI) => {
-    // Calculate interest savings if paid early (6 months early example)
     const remainingMonths = emi.remainingEMIs;
     const monthlyRate = emi.interestRate / (12 * 100);
     const earlyPaymentMonths = Math.min(6, remainingMonths);
@@ -117,6 +113,17 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
     </div>
   );
 
+  // Arrow scroll handler
+  const scrollStats = (direction: 'left' | 'right') => {
+    if (statsRef.current) {
+      const scrollAmount = 240;
+      statsRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -133,43 +140,75 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
         </div>
       ) : (
         <>
-          {/* Overview Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            <StatCard
-              title="Total Loans"
-              value={`₹${totalLoanAmount.toLocaleString()}`}
-              icon={BarChart3}
-              color="blue"
-              subtitle={`${emis.length} active loans`}
-            />
-            <StatCard
-              title="Interest Paid"
-              value={`₹${totalInterestPaid.toLocaleString()}`}
-              icon={TrendingDown}
-              color="red"
-              subtitle="Already paid"
-            />
-            <StatCard
-              title="Remaining Interest"
-              value={`₹${totalRemainingInterest.toLocaleString()}`}
-              icon={TrendingUp}
-              color="orange"
-              subtitle="Yet to pay"
-            />
-            <StatCard
-              title="Total Interest"
-              value={`₹${totalInterest.toLocaleString()}`}
-              icon={PieChart}
-              color="purple"
-              subtitle={`${((totalInterest / totalLoanAmount) * 100).toFixed(1)}% of principal`}
-            />
-            <StatCard
-              title="Saved by Prepayment"
-              value={`₹${totalSavedByPrepayment.toLocaleString()}`}
-              icon={Calculator}
-              color="green"
-              subtitle="Interest saved"
-            />
+          {/* Overview Stats with Arrow Buttons */}
+          <div className="relative">
+            <button
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border rounded-full shadow p-2 hover:bg-blue-50"
+              onClick={() => scrollStats('left')}
+              aria-label="Scroll left"
+              style={{ left: '-18px' }}
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor"><path d="M13 17l-5-5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+            <div
+              ref={statsRef}
+              className="flex gap-4 min-w-full overflow-x-auto px-8 hide-scrollbar"
+              style={{ scrollBehavior: 'smooth' }}
+            >
+              <div className="min-w-[220px] flex-1">
+                <StatCard
+                  title="Total Loans"
+                  value={`₹${totalLoanAmount.toLocaleString()}`}
+                  icon={BarChart3}
+                  color="blue"
+                  subtitle={`${emis.length} active loans`}
+                />
+              </div>
+              <div className="min-w-[220px] flex-1">
+                <StatCard
+                  title="Interest Paid"
+                  value={`₹${totalInterestPaid.toLocaleString()}`}
+                  icon={TrendingDown}
+                  color="red"
+                  subtitle="Already paid"
+                />
+              </div>
+              <div className="min-w-[220px] flex-1">
+                <StatCard
+                  title="Remaining Interest"
+                  value={`₹${totalRemainingInterest.toLocaleString()}`}
+                  icon={TrendingUp}
+                  color="orange"
+                  subtitle="Yet to pay"
+                />
+              </div>
+              <div className="min-w-[220px] flex-1">
+                <StatCard
+                  title="Total Interest"
+                  value={`₹${totalInterest.toLocaleString()}`}
+                  icon={PieChart}
+                  color="purple"
+                  subtitle={`${((totalInterest / totalLoanAmount) * 100).toFixed(1)}% of principal`}
+                />
+              </div>
+              <div className="min-w-[220px] flex-1">
+                <StatCard
+                  title="Saved by Prepayment"
+                  value={`₹${totalSavedByPrepayment.toLocaleString()}`}
+                  icon={Calculator}
+                  color="green"
+                  subtitle="Interest saved"
+                />
+              </div>
+            </div>
+            <button
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border rounded-full shadow p-2 hover:bg-blue-50"
+              onClick={() => scrollStats('right')}
+              aria-label="Scroll right"
+              style={{ right: '-18px' }}
+            >
+              <svg width="20" height="20" fill="none" stroke="currentColor"><path d="M7 7l5 5-5 5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
           </div>
 
           {/* Interest Breakdown Chart */}
@@ -196,12 +235,12 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
                       </span>
                     </div>
                     <div className="flex w-full h-4 bg-slate-200 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="bg-red-500 h-full"
                         style={{ width: `${paidPercentage}%` }}
                         title={`Paid: ₹${emi.paidInterest.toLocaleString()}`}
                       ></div>
-                      <div 
+                      <div
                         className="bg-orange-500 h-full"
                         style={{ width: `${remainingPercentage}%` }}
                         title={`Remaining: ₹${emi.remainingInterest.toLocaleString()}`}
@@ -272,7 +311,7 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
                           <span>{((selectedEMIData.totalInterest / selectedEMIData.loanAmount) * 100).toFixed(1)}%</span>
                         </div>
                         <div className="w-full bg-blue-200 rounded-full h-2">
-                          <div 
+                          <div
                             className="h-2 bg-blue-600 rounded-full"
                             style={{ width: `${(selectedEMIData.totalInterest / (selectedEMIData.loanAmount + selectedEMIData.totalInterest)) * 100}%` }}
                           ></div>
@@ -290,7 +329,7 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
             {/* Interest Savings Calculator */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Potential Savings</h3>
-              
+
               {selectedEMIData ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -345,7 +384,7 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
                 {((totalInterestPaid / totalInterest) * 100).toFixed(1)}% of total interest
               </p>
             </div>
-            
+
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-xl">
               <h3 className="font-semibold mb-2">Interest Remaining</h3>
               <p className="text-3xl font-bold">₹{totalRemainingInterest.toLocaleString()}</p>
@@ -353,7 +392,7 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
                 {((totalRemainingInterest / totalInterest) * 100).toFixed(1)}% of total interest
               </p>
             </div>
-            
+
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-xl">
               <h3 className="font-semibold mb-2">Interest Rate Impact</h3>
               <p className="text-3xl font-bold">{((totalInterest / totalLoanAmount) * 100).toFixed(1)}%</p>
