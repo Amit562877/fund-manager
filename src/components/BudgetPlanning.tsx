@@ -13,7 +13,7 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<string>('');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const [budgetForm, setBudgetForm] = useState({
     name: '',
@@ -65,29 +65,67 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
 
   const handleTransactionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const transaction: Transaction = {
-      id: Date.now().toString(),
-      budgetId: transactionForm.budgetId,
-      amount: parseFloat(transactionForm.amount),
-      description: transactionForm.description,
-      date: new Date().toISOString(),
-      type: transactionForm.type,
-      category: budgets.find(b => b.id === transactionForm.budgetId)?.category || '',
-    };
-
-    setTransactions([...transactions, transaction]);
-
-    // Update budget spent amount
-    if (transactionForm.type === 'expense') {
-      setBudgets(budgets.map(budget => 
-        budget.id === transactionForm.budgetId 
-          ? { ...budget, spentAmount: budget.spentAmount + parseFloat(transactionForm.amount) }
-          : budget
+    if (editingTransaction) {
+      // Edit existing transaction
+      setTransactions(transactions.map(t =>
+        t.id === editingTransaction.id
+          ? {
+              ...t,
+              budgetId: transactionForm.budgetId,
+              amount: parseFloat(transactionForm.amount),
+              description: transactionForm.description,
+              type: transactionForm.type,
+              category: budgets.find(b => b.id === transactionForm.budgetId)?.category || '',
+            }
+          : t
       ));
+      // Update spentAmount for budgets
+      setBudgets(budgets.map(budget => {
+        if (budget.id === editingTransaction.budgetId) {
+          // Remove old amount if expense
+          return {
+            ...budget,
+            spentAmount:
+              budget.spentAmount -
+              (editingTransaction.type === 'expense' ? editingTransaction.amount : 0),
+          };
+        }
+        if (budget.id === transactionForm.budgetId && transactionForm.type === 'expense') {
+          // Add new amount if expense
+          return {
+            ...budget,
+            spentAmount: budget.spentAmount + parseFloat(transactionForm.amount),
+          };
+        }
+        return budget;
+      }));
+    } else {
+      // Add new transaction
+      const transaction: Transaction = {
+        id: Date.now().toString(),
+        budgetId: transactionForm.budgetId,
+        amount: parseFloat(transactionForm.amount),
+        description: transactionForm.description,
+        date: new Date().toISOString(),
+        type: transactionForm.type,
+        category: budgets.find(b => b.id === transactionForm.budgetId)?.category || '',
+      };
+
+      setTransactions([...transactions, transaction]);
+
+      // Update budget spent amount
+      if (transactionForm.type === 'expense') {
+        setBudgets(budgets.map(budget =>
+          budget.id === transactionForm.budgetId
+            ? { ...budget, spentAmount: budget.spentAmount + parseFloat(transactionForm.amount) }
+            : budget
+        ));
+      }
     }
 
     setTransactionForm({ budgetId: '', amount: '', description: '', type: 'expense' });
     setShowTransactionForm(false);
+    setEditingTransaction(null);
   };
 
   const deleteBudget = (id: string) => {
@@ -110,6 +148,29 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
     return transactions.filter(t => t.budgetId === budgetId);
   };
 
+  const editTransaction = (txn: Transaction) => {
+    setEditingTransaction(txn);
+    setTransactionForm({
+      budgetId: txn.budgetId,
+      amount: txn.amount.toString(),
+      description: txn.description,
+      type: txn.type,
+    });
+    setShowTransactionForm(true);
+  };
+
+  const deleteTransaction = (txn: Transaction) => {
+    setTransactions(transactions.filter(t => t.id !== txn.id));
+    // Update spentAmount for budgets if expense
+    if (txn.type === 'expense') {
+      setBudgets(budgets.map(budget =>
+        budget.id === txn.budgetId
+          ? { ...budget, spentAmount: budget.spentAmount - txn.amount }
+          : budget
+      ));
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -120,7 +181,11 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
         </div>
         <div className="flex space-x-3 mt-4 sm:mt-0">
           <button
-            onClick={() => setShowTransactionForm(true)}
+            onClick={() => {
+              setShowTransactionForm(true);
+              setEditingTransaction(null);
+              setTransactionForm({ budgetId: '', amount: '', description: '', type: 'expense' });
+            }}
             className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -142,7 +207,7 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
           const usage = budget.budgetAmount > 0 ? (budget.spentAmount / budget.budgetAmount) * 100 : 0;
           const isOverBudget = usage > 100;
           const budgetTransactions = getBudgetTransactions(budget.id);
-          
+
           return (
             <div key={budget.id} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-4">
@@ -165,7 +230,7 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
                   </button>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-slate-600">Budget</span>
@@ -183,9 +248,9 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
                     ₹{(budget.budgetAmount - budget.spentAmount).toLocaleString()}
                   </span>
                 </div>
-                
+
                 <div className="w-full bg-slate-200 rounded-full h-3 mt-4">
-                  <div 
+                  <div
                     className={`h-3 rounded-full transition-all duration-500 ${
                       isOverBudget ? 'bg-red-500' : usage > 80 ? 'bg-yellow-500' : 'bg-green-500'
                     }`}
@@ -197,6 +262,37 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
                   <span className="text-xs text-slate-500">{budgetTransactions.length} transactions</span>
                 </div>
               </div>
+
+              {/* Transaction List */}
+              {budgetTransactions.length > 0 && (
+                <div className="mt-4 text-xs">
+                  <div className="font-semibold mb-1">Transactions:</div>
+                  <ul className="space-y-1">
+                    {budgetTransactions.map(txn => (
+                      <li key={txn.id} className="flex items-center justify-between">
+                        <span>
+                          <span className="font-medium">{txn.type.toUpperCase()}</span> | {txn.date.slice(0, 10)} | ₹{txn.amount}
+                          {txn.description && <span className="ml-2 text-slate-500">({txn.description})</span>}
+                        </span>
+                        <span>
+                          <button
+                            className="text-blue-500 hover:underline mr-2"
+                            onClick={() => editTransaction(txn)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="text-red-500 hover:underline"
+                            onClick={() => deleteTransaction(txn)}
+                          >
+                            Delete
+                          </button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           );
         })}
@@ -299,7 +395,7 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
       {showTransactionForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add Transaction</h3>
+            <h3 className="text-lg font-semibold mb-4">{editingTransaction ? 'Edit Transaction' : 'Add Transaction'}</h3>
             <form onSubmit={handleTransactionSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Budget</label>
@@ -352,6 +448,7 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
                   type="button"
                   onClick={() => {
                     setShowTransactionForm(false);
+                    setEditingTransaction(null);
                     setTransactionForm({ budgetId: '', amount: '', description: '', type: 'expense' });
                   }}
                   className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
@@ -362,7 +459,7 @@ const BudgetPlanning: React.FC<BudgetPlanningProps> = ({ budgets, setBudgets, tr
                   type="submit"
                   className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                 >
-                  Add Transaction
+                  {editingTransaction ? 'Update' : 'Add'} Transaction
                 </button>
               </div>
             </form>

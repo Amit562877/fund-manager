@@ -7,6 +7,7 @@ import KhataBookPage from './pages/KhataBookPage';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import AuthForm from './components/AuthForm';
+import ChecklistManager from './components/ChecklistManager';
 
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/emi" element={<EMIManagerPage />} />
         <Route path="/interest" element={<InterestTrackerPage />} />
         <Route path="/khatabook" element={<KhataBookPage />} />
+        <Route path="/checklist" element={<ChecklistManager />} />
         <Route path="/login" element={<AuthForm />} />
       </Routes>
       <Footer /></>

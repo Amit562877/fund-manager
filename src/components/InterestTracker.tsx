@@ -18,25 +18,87 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
 
   const selectedEMIData = emis.find(emi => emi.id === selectedEMI);
 
+  // Helper: Calculate total interest if no prepayments were made
+  const calculateInterestWithoutPrepayment = (emi: EMI) => {
+    const monthlyRate = emi.interestRate / (12 * 100);
+    const emiAmount = emi.emiAmount;
+    let principal = emi.loanAmount;
+    let totalInterest = 0;
+    for (let i = 0; i < emi.tenure; i++) {
+      const interestPortion = principal * monthlyRate;
+      totalInterest += interestPortion;
+      const principalPortion = emiAmount - interestPortion;
+      principal -= principalPortion;
+      if (principal <= 0) break;
+    }
+    return Math.round(totalInterest);
+  };
+
+  // Helper: Calculate actual interest (with prepayments)
+  const calculateActualInterest = (emi: EMI) => {
+    // If transactions exist, recalculate with prepayments
+    if ((emi as any).transactions && Array.isArray((emi as any).transactions)) {
+      const txns = ((emi as any).transactions as any[]).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      let principal = emi.loanAmount;
+      let totalInterest = 0;
+      const monthlyRate = emi.interestRate / (12 * 100);
+      let txnIndex = 0;
+      for (let i = 0; i < emi.tenure && principal > 0; i++) {
+        // Apply all prepayments before this EMI
+        while (
+          txnIndex < txns.length &&
+          txns[txnIndex].type === 'prepayment'
+        ) {
+          principal -= txns[txnIndex].amount;
+          txnIndex++;
+        }
+        const interestPortion = principal * monthlyRate;
+        totalInterest += interestPortion;
+        const principalPortion = emi.emiAmount - interestPortion;
+        principal -= principalPortion;
+        // Move to next transaction if it's an EMI payment (skip, as we simulate all EMIs)
+        while (
+          txnIndex < txns.length &&
+          txns[txnIndex].type === 'emi'
+        ) {
+          txnIndex++;
+        }
+      }
+      return Math.round(totalInterest);
+    }
+    // Fallback: use stored totalInterest
+    return Math.round(emi.totalInterest);
+  };
+
+  // Calculate savings for each EMI
+  const emiSavings = emis.map(emi => {
+    const interestWithoutPrepay = calculateInterestWithoutPrepayment(emi);
+    const actualInterest = calculateActualInterest(emi);
+    return {
+      emiId: emi.id,
+      loanName: emi.loanName,
+      interestWithoutPrepay,
+      actualInterest,
+      saved: Math.max(0, interestWithoutPrepay - actualInterest),
+    };
+  });
+
+  const totalSavedByPrepayment = emiSavings.reduce((sum, e) => sum + e.saved, 0);
+
   const getInterestSavings = (emi: EMI) => {
-    // Calculate interest savings if paid early
+    // Calculate interest savings if paid early (6 months early example)
     const remainingMonths = emi.remainingEMIs;
     const monthlyRate = emi.interestRate / (12 * 100);
-    
-    // Interest saved by paying off early (6 months early example)
     const earlyPaymentMonths = Math.min(6, remainingMonths);
     let savings = 0;
-    
     if (earlyPaymentMonths > 0) {
       let remainingPrincipal = emi.loanAmount - (emi.paidEMIs * (emi.emiAmount - (emi.loanAmount * monthlyRate)));
-      
       for (let i = 0; i < earlyPaymentMonths; i++) {
         const interestPortion = remainingPrincipal * monthlyRate;
         savings += interestPortion;
         remainingPrincipal -= (emi.emiAmount - interestPortion);
       }
     }
-    
     return savings;
   };
 
@@ -60,7 +122,7 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Interest Tracker</h2>
-        <p className="text-slate-600 mt-1">Monitor interest payments and potential savings</p>
+        <p className="text-slate-600 mt-1">Monitor interest payments, prepayment savings, and potential savings</p>
       </div>
 
       {emis.length === 0 ? (
@@ -72,7 +134,7 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
       ) : (
         <>
           {/* Overview Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <StatCard
               title="Total Loans"
               value={`₹${totalLoanAmount.toLocaleString()}`}
@@ -101,6 +163,13 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
               color="purple"
               subtitle={`${((totalInterest / totalLoanAmount) * 100).toFixed(1)}% of principal`}
             />
+            <StatCard
+              title="Saved by Prepayment"
+              value={`₹${totalSavedByPrepayment.toLocaleString()}`}
+              icon={Calculator}
+              color="green"
+              subtitle="Interest saved"
+            />
           </div>
 
           {/* Interest Breakdown Chart */}
@@ -111,13 +180,19 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
                 const totalEMIInterest = emi.paidInterest + emi.remainingInterest;
                 const paidPercentage = totalEMIInterest > 0 ? (emi.paidInterest / totalEMIInterest) * 100 : 0;
                 const remainingPercentage = 100 - paidPercentage;
-                
+                const emiSaved = emiSavings.find(e => e.emiId === emi.id);
+
                 return (
                   <div key={emi.id} className="space-y-2">
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium text-slate-900">{emi.loanName}</h4>
                       <span className="text-sm text-slate-600">
                         ₹{totalEMIInterest.toLocaleString()} total interest
+                        {emiSaved && emiSaved.saved > 0 && (
+                          <span className="ml-2 text-green-600 font-semibold">
+                            (Saved ₹{emiSaved.saved.toLocaleString()})
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="flex w-full h-4 bg-slate-200 rounded-full overflow-hidden">
@@ -179,6 +254,12 @@ const InterestTracker: React.FC<InterestTrackerProps> = ({ emis }) => {
                     <div className="p-3 bg-orange-50 rounded-lg">
                       <p className="text-xs text-orange-600">Interest Remaining</p>
                       <p className="text-lg font-bold text-orange-600">₹{selectedEMIData.remainingInterest.toLocaleString()}</p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg col-span-2">
+                      <p className="text-xs text-green-600">Saved by Prepayment</p>
+                      <p className="text-lg font-bold text-green-600">
+                        ₹{(emiSavings.find(e => e.emiId === selectedEMI)?.saved || 0).toLocaleString()}
+                      </p>
                     </div>
                   </div>
 

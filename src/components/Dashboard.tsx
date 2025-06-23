@@ -32,6 +32,27 @@ const Dashboard: React.FC<DashboardProps> = ({ budgets, emis, transactions, khat
   const totalInterestPaid = emis.reduce((sum, emi) => sum + emi.paidInterest, 0);
   const totalRemainingInterest = emis.reduce((sum, emi) => sum + emi.remainingInterest, 0);
 
+  // Calculate principal outstanding for all EMIs
+  const getRemainingPrincipal = (emi: EMI) => {
+    let paidEMIs = emi.paidEMIs || 0;
+    let prepayments = 0;
+    if ((emi as any).transactions) {
+      ((emi as any).transactions as any[]).forEach((t: any) => {
+        if (t.type === 'prepayment') prepayments += t.amount;
+      });
+    }
+    let remainingPrincipal = emi.loanAmount - prepayments;
+    const monthlyRate = emi.interestRate / (12 * 100);
+    const emiAmount = emi.emiAmount;
+    for (let i = 0; i < paidEMIs; i++) {
+      const interestPortion = remainingPrincipal * monthlyRate;
+      const principalPortion = emiAmount - interestPortion;
+      remainingPrincipal -= principalPortion;
+    }
+    return Math.max(0, Math.round(remainingPrincipal));
+  };
+  const totalPrincipalOutstanding = emis.reduce((sum, emi) => sum + getRemainingPrincipal(emi), 0);
+
   // Calculate Khata metrics
   const totalToReceive = khataEntries
     .filter(entry => entry.type === 'gave')
@@ -97,7 +118,7 @@ const Dashboard: React.FC<DashboardProps> = ({ budgets, emis, transactions, khat
     <div className="space-y-8">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-8 rounded-xl shadow-lg">
-        <h2 className="text-3xl font-bold mb-2">Welcome to FundFlow</h2>
+        <h2 className="text-3xl font-bold mb-2">Welcome to Fund Manager</h2>
         <p className="text-blue-100 text-lg">Your comprehensive financial management dashboard</p>
       </div>
 
@@ -130,7 +151,7 @@ const Dashboard: React.FC<DashboardProps> = ({ budgets, emis, transactions, khat
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
           title="Total Spent"
           value={`₹${totalSpent.toLocaleString()}`}
@@ -142,6 +163,12 @@ const Dashboard: React.FC<DashboardProps> = ({ budgets, emis, transactions, khat
           value={`₹${totalInterestPaid.toLocaleString()}`}
           icon={PieChart}
           color="purple"
+        />
+        <StatCard
+          title="Principal Outstanding"
+          value={`₹${totalPrincipalOutstanding.toLocaleString()}`}
+          icon={CreditCard}
+          color="blue"
         />
         <StatCard
           title="Khata Net Balance"
