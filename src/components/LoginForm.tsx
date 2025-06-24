@@ -1,21 +1,40 @@
 import { useState } from 'react';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { Mail, Lock } from 'lucide-react';
+import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { Mail, Lock, User } from 'lucide-react';
+
+const db = getFirestore();
 
 export default function LoginForm() {
-    const [email, setEmail] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+
+    // Helper: check if input is email
+    const isEmail = (val: string) => /\S+@\S+\.\S+/.test(val);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setMessage('');
         try {
+            let email = identifier;
+            // If not email, treat as username and look up in Firestore
+            if (!isEmail(identifier)) {
+                const q = query(collection(db, 'users'), where('username', '==', identifier));
+                const snap = await getDocs(q);
+                if (snap.empty) {
+                    setMessage('No user found with this username.');
+                    setLoading(false);
+                    return;
+                }
+                email = snap.docs[0].data().email;
+            }
             await signInWithEmailAndPassword(auth, email, password);
             setMessage('Login successful!');
+            // Firebase Auth will maintain login state automatically
         } catch (err: any) {
             setMessage(err.message);
         } finally {
@@ -28,13 +47,13 @@ export default function LoginForm() {
             <h2 className="text-xl font-semibold text-center mb-4">Login</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <input
-                        type="email"
+                        type="text"
                         className="pl-10 w-full border rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
+                        placeholder="Email or Username"
+                        value={identifier}
+                        onChange={e => setIdentifier(e.target.value)}
                         required
                     />
                 </div>

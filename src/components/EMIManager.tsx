@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Calendar, CreditCard } from 'lucide-react';
+import { Plus, Edit, Trash2, Calendar, CreditCard, Calculator } from 'lucide-react';
 import { EMI } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 // --- Transaction Types ---
 type TransactionType = 'emi' | 'prepayment' | 'fee' | 'other' | 'ratechange';
@@ -27,7 +28,7 @@ interface EMIManagerProps {
 const EMIManager: React.FC<EMIManagerProps> = ({ emis, setEMIs }) => {
   const [showEMIForm, setShowEMIForm] = useState(false);
   const [editingEMI, setEditingEMI] = useState<EMIWithTransactions | null>(null);
-
+  const navigate = useNavigate();
   const [emiForm, setEMIForm] = useState({
     loanName: '',
     loanAmount: '',
@@ -452,13 +453,22 @@ const EMIManager: React.FC<EMIManagerProps> = ({ emis, setEMIs }) => {
           <h2 className="text-2xl font-bold text-slate-900">EMI Manager</h2>
           <p className="text-slate-600 mt-1">Track and manage your loan EMIs</p>
         </div>
-        <button
-          onClick={() => setShowEMIForm(true)}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mt-4 sm:mt-0"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add EMI
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
+          <button
+            onClick={() => setShowEMIForm(true)}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add EMI
+          </button>
+          <button
+            onClick={() => navigate('/emi-calculator')}
+            className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Calculator className="w-4 h-4 mr-2" />
+            EMI Calculator
+          </button>
+        </div>
       </div>
 
       {/* EMI Cards */}

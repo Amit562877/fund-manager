@@ -10,6 +10,8 @@ import ChecklistManager from './components/ChecklistManager';
 import LoginForm from './components/LoginForm';
 import SignupForm from './components/SignupForm';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
+import EMICalculator from './components/EMICalculator';
+import PublicHeader from './components/PublicHeader';
 
 function PrivateLayout() {
   return (
@@ -27,9 +29,11 @@ function PrivateLayout() {
 function PublicLayout() {
   return (
     <div className="min-h-screen flex flex-col justify-center bg-gray-50">
+      <PublicHeader />
       <main className="flex-1 flex items-center justify-center px-2 sm:px-4 md:px-8 lg:px-16 xl:px-32">
         <Outlet />
       </main>
+      <Footer />
     </div>
   );
 }
@@ -53,6 +57,7 @@ export default function App() {
         <Route path="/interest" element={<InterestTrackerPage />} />
         <Route path="/khatabook" element={<KhataBookPage />} />
         <Route path="/checklist" element={<ChecklistManager />} />
+        <Route path="/emi-calculator" element={<EMICalculator />} />
       </Route>
     </Routes>
   );
