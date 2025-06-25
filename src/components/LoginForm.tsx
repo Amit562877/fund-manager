@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { Mail, Lock, User } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 const db = getFirestore();
 
@@ -11,6 +13,15 @@ export default function LoginForm() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const navigate = useNavigate();
+    const user = useAuthStore((state) => state.user);
+
+    // Redirect to dashboard if already logged in
+    useEffect(() => {
+        if (user) {
+            navigate('/dashboard');
+        }
+    }, [user, navigate]);
 
     // Helper: check if input is email
     const isEmail = (val: string) => /\S+@\S+\.\S+/.test(val);
@@ -32,9 +43,11 @@ export default function LoginForm() {
                 }
                 email = snap.docs[0].data().email;
             }
-            await signInWithEmailAndPassword(auth, email, password);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const token = await userCredential.user.getIdToken();
+            useAuthStore.getState().setUser(userCredential.user, token);
             setMessage('Login successful!');
-            // Firebase Auth will maintain login state automatically
+            navigate('/dashboard');
         } catch (err: any) {
             setMessage(err.message);
         } finally {

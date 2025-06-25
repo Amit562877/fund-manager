@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Wallet,
   LineChart,
@@ -12,10 +12,22 @@ import {
   Menu,
   X,
   User,
+  LogOut,
 } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
+import { useAuthStore } from '../store/authStore';
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const navigate = useNavigate();
+  const clearUser = useAuthStore((state) => state.clearUser);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    clearUser();
+    navigate('/login');
+  };
 
   const navItems = [
     { to: '/dashboard', label: 'Dashboard', icon: <LineChart size={16} /> },
@@ -54,7 +66,7 @@ export default function Header() {
           ))}
         </nav>
 
-        {/* Profile Button (desktop) */}
+        {/* Profile & Logout Button (desktop) */}
         <div className="hidden md:flex gap-4 items-center">
           <NavLink
             to="/profile"
@@ -62,6 +74,13 @@ export default function Header() {
           >
             <User size={16} /> Profile
           </NavLink>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm font-medium text-red-600 hover:underline"
+            title="Logout"
+          >
+            <LogOut size={16} /> Logout
+          </button>
         </div>
 
         {/* Mobile Menu Button */}
@@ -103,6 +122,16 @@ export default function Header() {
             >
               <User size={16} /> Profile
             </NavLink>
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                handleLogout();
+              }}
+              className="flex items-center gap-2 text-sm font-medium text-red-600 hover:underline mt-2"
+              title="Logout"
+            >
+              <LogOut size={16} /> Logout
+            </button>
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import React from 'react';
 import DashboardPage from './pages/DashboardPage';
 import BudgetPlanningPage from './pages/BudgetPlanningPage';
 import EMIManagerPage from './pages/EMIManagerPage';
@@ -12,7 +13,10 @@ import SignupForm from './components/SignupForm';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
 import EMICalculator from './components/EMICalculator';
 import PublicHeader from './components/PublicHeader';
+import { useAuthStore } from './store/authStore';
+import ProfilePage from './components/ProfilePage';
 
+// Private layout with header/footer
 function PrivateLayout() {
   return (
     <>
@@ -38,6 +42,24 @@ function PublicLayout() {
   );
 }
 
+// PrivateRoute wrapper for protecting private routes
+function PrivateRoute() {
+  const user = useAuthStore((state) => state.user);
+  const location = useLocation();
+
+  if (user === undefined) {
+    // Still loading auth state
+    return null;
+  }
+
+  if (!user) {
+    // Not logged in, redirect to login with return url
+    return <Navigate to={`/login?returnUrl=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
+
+  return <Outlet />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -49,15 +71,18 @@ export default function App() {
       </Route>
 
       {/* Private routes */}
-      <Route element={<PrivateLayout />}>
-        <Route path="/" element={<Navigate to="/dashboard" />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/budget" element={<BudgetPlanningPage />} />
-        <Route path="/emi" element={<EMIManagerPage />} />
-        <Route path="/interest" element={<InterestTrackerPage />} />
-        <Route path="/khatabook" element={<KhataBookPage />} />
-        <Route path="/checklist" element={<ChecklistManager />} />
-        <Route path="/emi-calculator" element={<EMICalculator />} />
+      <Route element={<PrivateRoute />}>
+        <Route element={<PrivateLayout />}>
+          <Route path="/" element={<Navigate to="/dashboard" />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/budget" element={<BudgetPlanningPage />} />
+          <Route path="/emi" element={<EMIManagerPage />} />
+          <Route path="/interest" element={<InterestTrackerPage />} />
+          <Route path="/khatabook" element={<KhataBookPage />} />
+          <Route path="/checklist" element={<ChecklistManager />} />
+          <Route path="/emi-calculator" element={<EMICalculator />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
       </Route>
     </Routes>
   );
